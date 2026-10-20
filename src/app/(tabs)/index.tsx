@@ -1,4 +1,3 @@
-
 import { useMarketplace } from '@/context/MarketplaceContext';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -9,6 +8,7 @@ import {
   Easing,
   Image,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,6 +32,88 @@ const COLORS = {
 };
 
 const categories = ['All', 'Fashion', 'Electronics', 'Home', 'Beauty'];
+
+const markets = [
+  {
+    id: 'marketplace',
+    title: 'Marketplace',
+    subtitle: 'Everyday products and shops',
+    icon: '🛍',
+  },
+  {
+    id: 'dealership',
+    title: 'Dealership',
+    subtitle: 'Cars, motorcycles and dealers',
+    icon: '🚘',
+  },
+  {
+    id: 'foods',
+    title: 'Foods & Drinks',
+    subtitle: 'Food sellers, menus and beverages',
+    icon: '🥗',
+  },
+  {
+    id: 'realestate',
+    title: 'Real Estate',
+    subtitle: 'Properties for sale or rent',
+    icon: '🏡',
+  },
+] as const;
+
+const vehicles = [
+  {
+    id: 'car-1',
+    name: 'Toyota Vios 1.3 XLE',
+    price: 625000,
+    kind: 'Cars',
+    year: '2022',
+    mileage: '28,000 km',
+    transmission: 'Automatic',
+    location: 'Quezon City',
+    seller: 'Sample Motors',
+    image:
+      'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=900',
+  },
+  {
+    id: 'car-2',
+    name: 'Honda Civic RS',
+    price: 1180000,
+    kind: 'Cars',
+    year: '2023',
+    mileage: '16,500 km',
+    transmission: 'Automatic',
+    location: 'Makati City',
+    seller: 'Metro Auto Hub',
+    image:
+      'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900',
+  },
+  {
+    id: 'moto-1',
+    name: 'Yamaha NMAX 155',
+    price: 118000,
+    kind: 'Motorcycles',
+    year: '2024',
+    mileage: '4,200 km',
+    transmission: 'Automatic',
+    location: 'Pasig City',
+    seller: 'RideReady Motors',
+    image:
+      'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=900',
+  },
+  {
+    id: 'moto-2',
+    name: 'Honda Click 160',
+    price: 92000,
+    kind: 'Motorcycles',
+    year: '2023',
+    mileage: '7,800 km',
+    transmission: 'Automatic',
+    location: 'Manila',
+    seller: 'City Cycle Trading',
+    image:
+      'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=900',
+  },
+] as const;
 
 const products = [
   {
@@ -69,6 +151,8 @@ const products = [
 ];
 
 type Product = (typeof products)[number];
+type MarketId = (typeof markets)[number]['id'];
+type VehicleType = 'All' | 'Cars' | 'Motorcycles';
 
 const MENU_ITEMS = [
   { icon: '🛍', title: 'Shopping Cart & Favorites' },
@@ -92,6 +176,84 @@ export default function HomeScreen() {
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
+  const [activeMarket, setActiveMarket] =
+    useState<MarketId>('marketplace');
+  const [marketPickerVisible, setMarketPickerVisible] = useState(false);
+  const [logBookVisible, setLogBookVisible] = useState(false);
+  const [logBookExpanded, setLogBookExpanded] = useState(false);
+
+  // Animate the sheet's actual height so it follows the finger while dragging.
+  // Keep the responder on the handle so the status tabs/content remain scrollable.
+  const windowHeight = Dimensions.get('window').height;
+  const logBookCollapsedHeight = windowHeight * 0.68;
+  const logBookExpandedHeight = windowHeight * 0.94;
+  const logBookHeight = useRef(
+    new Animated.Value(logBookCollapsedHeight),
+  ).current;
+  const logBookCurrentHeight = useRef(logBookCollapsedHeight);
+  const logBookDragStartHeight = useRef(logBookCollapsedHeight);
+
+  const logBookPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dy) > 3 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onPanResponderGrant: () => {
+        logBookHeight.stopAnimation((value) => {
+          logBookCurrentHeight.current = value;
+          logBookDragStartHeight.current = value;
+        });
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const nextHeight = Math.max(
+          logBookCollapsedHeight,
+          Math.min(
+            logBookExpandedHeight,
+            logBookDragStartHeight.current - gestureState.dy,
+          ),
+        );
+        logBookCurrentHeight.current = nextHeight;
+        logBookHeight.setValue(nextHeight);
+      },
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderRelease: (_, gestureState) => {
+        const shouldExpand =
+          gestureState.vy < -0.45 ||
+          (gestureState.vy >= -0.45 &&
+            logBookCurrentHeight.current >
+              (logBookCollapsedHeight + logBookExpandedHeight) / 2);
+        const targetHeight = shouldExpand
+          ? logBookExpandedHeight
+          : logBookCollapsedHeight;
+
+        setLogBookExpanded(shouldExpand);
+        logBookCurrentHeight.current = targetHeight;
+        Animated.spring(logBookHeight, {
+          toValue: targetHeight,
+          useNativeDriver: false,
+          stiffness: 240,
+          damping: 28,
+          mass: 0.8,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        const targetHeight = logBookExpanded
+          ? logBookExpandedHeight
+          : logBookCollapsedHeight;
+        logBookCurrentHeight.current = targetHeight;
+        Animated.spring(logBookHeight, {
+          toValue: targetHeight,
+          useNativeDriver: false,
+          stiffness: 240,
+          damping: 28,
+          mass: 0.8,
+        }).start();
+      },
+    }),
+  ).current;
+  const [activeLogBookStatus, setActiveLogBookStatus] = useState('Inquiries');
+  const [vehicleType, setVehicleType] = useState<VehicleType>('All');
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [flyingProduct, setFlyingProduct] =
     useState<FlyingProduct | null>(null);
@@ -136,7 +298,19 @@ export default function HomeScreen() {
     return matchesCategory && matchesSearch;
   });
 
-  // Animate the cart badge when the cart count changes.
+  const filteredVehicles = vehicles.filter((vehicle) => {
+    const matchesType =
+      vehicleType === 'All' || vehicle.kind === vehicleType;
+
+    const searchableText =
+      `${vehicle.name} ${vehicle.seller} ${vehicle.location} ${vehicle.year}`;
+
+    return (
+      matchesType &&
+      searchableText.toLowerCase().includes(search.toLowerCase())
+    );
+  });
+
   useEffect(() => {
     if (previousCartCount.current === cartCount) {
       return;
@@ -200,6 +374,30 @@ export default function HomeScreen() {
     router.push('/cart');
   }
 
+  function openLogBook() {
+    setActiveLogBookStatus('Inquiries');
+    setLogBookExpanded(false);
+    logBookCurrentHeight.current = logBookCollapsedHeight;
+    logBookDragStartHeight.current = logBookCollapsedHeight;
+    logBookHeight.setValue(logBookCollapsedHeight);
+    setLogBookVisible(true);
+  }
+
+  function getMenuTitle(title: string) {
+    if (activeMarket !== 'dealership') return title;
+    if (title === 'Shopping Cart & Favorites') return 'My LogBook';
+    if (title === 'My Shop') return 'My Dealership';
+    return title;
+  }
+
+  function selectMarket(marketId: MarketId) {
+    setActiveMarket(marketId);
+    setSearch('');
+    setCategory('All');
+    setVehicleType('All');
+    setMarketPickerVisible(false);
+  }
+
   function handleAddToCart(product: Product) {
     if (isAnimatingRef.current) {
       return;
@@ -224,7 +422,6 @@ export default function HomeScreen() {
     isAnimatingRef.current = true;
     setSuccessfulProductId(product.id);
 
-    // Add the item immediately; animation is visual feedback.
     addToCart(product);
 
     Animated.sequence([
@@ -339,7 +536,12 @@ export default function HomeScreen() {
 
   function openMenuItem(item: string) {
     if (item === 'Shopping Cart & Favorites') {
-      navigateTo('/cart');
+      if (activeMarket === 'dealership') {
+        closeSidebar();
+        setTimeout(() => openLogBook(), 240);
+      } else {
+        navigateTo('/cart');
+      }
       return;
     }
 
@@ -354,7 +556,7 @@ export default function HomeScreen() {
     }
 
     Alert.alert(
-      item,
+      getMenuTitle(item),
       'This feature will be built in a future step.',
     );
   }
@@ -373,25 +575,56 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>A BETTER WAY TO SHOP</Text>
-            <Text style={styles.brand}>marketplace.</Text>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Choose marketplace type"
+              accessibilityHint="Opens the available marketplace categories"
+              onPress={() => setMarketPickerVisible(true)}
+              style={({ pressed }) => [
+                styles.brandSwitcher,
+                pressed && styles.brandSwitcherPressed,
+              ]}
+            >
+              <Text style={styles.brand}>
+                {activeMarket === 'marketplace'
+                  ? 'marketplace.'
+                  : activeMarket === 'dealership'
+                    ? 'dealership.'
+                    : activeMarket === 'foods'
+                      ? 'foods & drinks.'
+                      : 'real estate.'}
+              </Text>
+              <Text style={styles.brandChevron}>⌄</Text>
+            </Pressable>
           </View>
 
           <View style={styles.headerActions}>
             <Pressable
-              ref={cartButtonRef}
+              ref={activeMarket === 'dealership' ? undefined : cartButtonRef}
               collapsable={false}
               accessibilityRole="button"
-              accessibilityLabel={`Shopping cart, ${cartCount} items`}
-              accessibilityHint="Opens your cart and favorites"
-              onPress={openCart}
+              accessibilityLabel={
+                activeMarket === 'dealership'
+                  ? 'Open My LogBook'
+                  : `Shopping cart, ${cartCount} items`
+              }
+              accessibilityHint={
+                activeMarket === 'dealership'
+                  ? 'Track inquiries, schedules, viewings, completed and cancelled activity'
+                  : 'Opens your cart and favorites'
+              }
+              onPress={activeMarket === 'dealership' ? openLogBook : openCart}
               style={({ pressed }) => [
                 styles.iconButton,
                 pressed && styles.headerButtonPressed,
               ]}
             >
-              <Text style={styles.cartIcon}>🛒</Text>
+              <Text style={styles.cartIcon}>
+                {activeMarket === 'dealership' ? '▤' : '🛒'}
+              </Text>
 
-              {cartCount > 0 && (
+              {activeMarket !== 'dealership' && cartCount > 0 && (
                 <Animated.View
                   style={[
                     styles.cartBadge,
@@ -417,209 +650,627 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.searchBox}>
-          <Text style={styles.searchIcon}>⌕</Text>
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search products and shops"
-            placeholderTextColor={COLORS.muted}
-            style={styles.searchInput}
-            returnKeyType="search"
-          />
-        </View>
+        {activeMarket === 'marketplace' ? (
+          <>
+            <View style={styles.searchBox}>
+              <Text style={styles.searchIcon}>⌕</Text>
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search products and shops"
+                placeholderTextColor={COLORS.muted}
+                style={styles.searchInput}
+                returnKeyType="search"
+              />
+            </View>
 
-        <View style={styles.sectionHeading}>
-          <Text style={styles.sectionTitle}>Explore categories</Text>
-        </View>
+            <View style={styles.sectionHeading}>
+              <Text style={styles.sectionTitle}>Explore categories</Text>
+            </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryList}
-        >
-          {categories.map((item) => {
-            const selected = category === item;
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryList}
+            >
+              {categories.map((item) => {
+                const selected = category === item;
 
-            return (
-              <Pressable
-                key={item}
-                onPress={() => setCategory(item)}
-                style={[
-                  styles.categoryPill,
-                  selected && styles.categoryPillActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    selected && styles.categoryTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <View style={styles.banner}>
-          <View style={styles.bannerCopy}>
-            <Text style={styles.bannerLabel}>
-              DISCOVER SOMETHING NEW
-            </Text>
-
-            <Text style={styles.bannerTitle}>
-              Good finds.{'\n'}Better shopping.
-            </Text>
-
-            <Text style={styles.bannerDescription}>
-              Explore products from independent sellers.
-            </Text>
-          </View>
-
-          <Text style={styles.bannerDecoration}>✳</Text>
-        </View>
-
-        <View style={styles.sectionHeading}>
-          <View>
-            <Text style={styles.sectionTitle}>Picked for you</Text>
-            <Text style={styles.sectionSubtitle}>
-              Discover your next favorite
-            </Text>
-          </View>
-
-          <Text style={styles.itemCount}>
-            {filteredProducts.length} items
-          </Text>
-        </View>
-
-        <View style={styles.productGrid}>
-          {filteredProducts.map((product) => {
-            const productIsFavorite = isFavorite(product.id);
-            const isSuccessful = successfulProductId === product.id;
-
-            return (
-              <View key={product.id} style={styles.productCard}>
-                <View
-                  ref={(ref) => {
-                    productImageRefs.current[product.id] = ref;
-                  }}
-                  collapsable={false}
-                  style={styles.productImageWrap}
-                >
-                  <Image
-                    source={{ uri: product.image }}
-                    style={styles.productImage}
-                    resizeMode="cover"
-                  />
-
-                  {/* Opens the product details without replacing
-                      the existing favorite button. */}
+                return (
                   <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`View ${product.name} details`}
-                    accessibilityHint="Opens the product details page"
-                    onPress={() => openProduct(product.id)}
-                    style={StyleSheet.absoluteFill}
-                  />
-
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      productIsFavorite
-                        ? `Remove ${product.name} from favorites`
-                        : `Add ${product.name} to favorites`
-                    }
-                    accessibilityState={{
-                      selected: productIsFavorite,
-                    }}
-                    onPress={() => toggleFavorite(product.id)}
-                    style={({ pressed }) => [
-                      styles.favoriteButton,
-                      pressed && styles.favoriteButtonPressed,
+                    key={item}
+                    onPress={() => setCategory(item)}
+                    style={[
+                      styles.categoryPill,
+                      selected && styles.categoryPillActive,
                     ]}
                   >
                     <Text
                       style={[
-                        styles.favoriteIcon,
-                        productIsFavorite && styles.favoriteActive,
+                        styles.categoryText,
+                        selected && styles.categoryTextActive,
                       ]}
                     >
-                      {productIsFavorite ? '♥' : '♡'}
+                      {item}
                     </Text>
                   </Pressable>
-                </View>
+                );
+              })}
+            </ScrollView>
 
-                <Text style={styles.productCategory}>
-                  {product.category}
+            <View style={styles.banner}>
+              <View style={styles.bannerCopy}>
+                <Text style={styles.bannerLabel}>
+                  DISCOVER SOMETHING NEW
                 </Text>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`View ${product.name} details`}
-                  onPress={() => openProduct(product.id)}
-                >
-                  <Text style={styles.productName} numberOfLines={2}>
-                    {product.name}
-                  </Text>
-                </Pressable>
+                <Text style={styles.bannerTitle}>
+                  Good finds.{'\n'}Better shopping.
+                </Text>
 
-                <View style={styles.priceRow}>
-                  <Text style={styles.currencySymbol}>₱</Text>
-                  <Text style={styles.productPrice}>
-                    {product.price.toLocaleString('en-PH')}
+                <Text style={styles.bannerDescription}>
+                  Explore products from independent sellers.
+                </Text>
+              </View>
+
+              <Text style={styles.bannerDecoration}>✳</Text>
+            </View>
+
+            <View style={styles.sectionHeading}>
+              <View>
+                <Text style={styles.sectionTitle}>Picked for you</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Discover your next favorite
+                </Text>
+              </View>
+
+              <Text style={styles.itemCount}>
+                {filteredProducts.length} items
+              </Text>
+            </View>
+
+            <View style={styles.productGrid}>
+              {filteredProducts.map((product) => {
+                const productIsFavorite = isFavorite(product.id);
+                const isSuccessful =
+                  successfulProductId === product.id;
+
+                return (
+                  <View key={product.id} style={styles.productCard}>
+                    <View
+                      ref={(ref) => {
+                        productImageRefs.current[product.id] = ref;
+                      }}
+                      collapsable={false}
+                      style={styles.productImageWrap}
+                    >
+                      <Image
+                        source={{ uri: product.image }}
+                        style={styles.productImage}
+                        resizeMode="cover"
+                      />
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`View ${product.name} details`}
+                        accessibilityHint="Opens the product details page"
+                        onPress={() => openProduct(product.id)}
+                        style={StyleSheet.absoluteFill}
+                      />
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          productIsFavorite
+                            ? `Remove ${product.name} from favorites`
+                            : `Add ${product.name} to favorites`
+                        }
+                        accessibilityState={{
+                          selected: productIsFavorite,
+                        }}
+                        onPress={() => toggleFavorite(product.id)}
+                        style={({ pressed }) => [
+                          styles.favoriteButton,
+                          pressed && styles.favoriteButtonPressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.favoriteIcon,
+                            productIsFavorite &&
+                              styles.favoriteActive,
+                          ]}
+                        >
+                          {productIsFavorite ? '♥' : '♡'}
+                        </Text>
+                      </Pressable>
+                    </View>
+
+                    <Text style={styles.productCategory}>
+                      {product.category}
+                    </Text>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`View ${product.name} details`}
+                      onPress={() => openProduct(product.id)}
+                    >
+                      <Text
+                        style={styles.productName}
+                        numberOfLines={2}
+                      >
+                        {product.name}
+                      </Text>
+                    </Pressable>
+
+                    <View style={styles.priceRow}>
+                      <Text style={styles.currencySymbol}>₱</Text>
+                      <Text style={styles.productPrice}>
+                        {product.price.toLocaleString('en-PH')}
+                      </Text>
+                    </View>
+
+                    <Animated.View
+                      style={{
+                        transform: [
+                          { scale: isSuccessful ? 1.02 : 1 },
+                        ],
+                      }}
+                    >
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          isSuccessful
+                            ? `${product.name} added to cart`
+                            : `Add ${product.name} to cart`
+                        }
+                        accessibilityState={{
+                          disabled: isAnimatingRef.current,
+                        }}
+                        disabled={isAnimatingRef.current}
+                        onPress={() => handleAddToCart(product)}
+                        style={({ pressed }) => [
+                          styles.addToCartButton,
+                          isSuccessful &&
+                            styles.addToCartButtonSuccess,
+                          pressed &&
+                            styles.addToCartButtonPressed,
+                        ]}
+                      >
+                        <Text style={styles.addToCartButtonText}>
+                          {isSuccessful ? '✓ Added!' : '+ Add to Cart'}
+                        </Text>
+                      </Pressable>
+                    </Animated.View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {filteredProducts.length === 0 && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>
+                  No products found
+                </Text>
+                <Text style={styles.sectionSubtitle}>
+                  Try another search or category.
+                </Text>
+              </View>
+            )}
+
+            <Text style={styles.footer}>
+              A new way to discover good things.
+            </Text>
+          </>
+        ) : activeMarket === 'dealership' ? (
+          <>
+            <View style={styles.searchBox}>
+              <Text style={styles.searchIcon}>⌕</Text>
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search cars, motorcycles or dealers"
+                placeholderTextColor={COLORS.muted}
+                style={styles.searchInput}
+                returnKeyType="search"
+              />
+            </View>
+
+            <View style={styles.dealershipHero}>
+              <Text style={styles.dealershipEyebrow}>
+                SELLSPACE · DEALERSHIP
+              </Text>
+              <Text style={styles.dealershipHeroTitle}>
+                Find your next ride.
+              </Text>
+              <Text style={styles.dealershipHeroDescription}>
+                Explore cars and motorcycles from vehicle sellers.
+              </Text>
+
+              <View style={styles.vehicleStatsRow}>
+                <View style={styles.vehicleStat}>
+                  <Text style={styles.vehicleStatValue}>Cars</Text>
+                  <Text style={styles.vehicleStatLabel}>
+                    Find your fit
                   </Text>
                 </View>
 
-                <Animated.View
-                  style={{
-                    transform: [
-                      { scale: isSuccessful ? 1.02 : 1 },
-                    ],
-                  }}
-                >
+                <View style={styles.vehicleStatDivider} />
+
+                <View style={styles.vehicleStat}>
+                  <Text style={styles.vehicleStatValue}>
+                    Motorcycles
+                  </Text>
+                  <Text style={styles.vehicleStatLabel}>
+                    Ride your way
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.sectionHeading}>
+              <View>
+                <Text style={styles.sectionTitle}>
+                  Browse vehicles
+                </Text>
+                <Text style={styles.sectionSubtitle}>
+                  Find a ride that fits your life
+                </Text>
+              </View>
+
+              <Text style={styles.itemCount}>
+                {filteredVehicles.length} listings
+              </Text>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryList}
+            >
+              {(['All', 'Cars', 'Motorcycles'] as const).map(
+                (item) => {
+                  const selected = vehicleType === item;
+
+                  return (
+                    <Pressable
+                      key={item}
+                      onPress={() => setVehicleType(item)}
+                      style={[
+                        styles.categoryPill,
+                        selected && styles.categoryPillActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          selected && styles.categoryTextActive,
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                    </Pressable>
+                  );
+                },
+              )}
+            </ScrollView>
+
+            <View style={styles.vehicleGrid}>
+              {filteredVehicles.map((vehicle) => (
+                <View key={vehicle.id} style={styles.vehicleCard}>
+                  <View style={styles.vehicleImageWrap}>
+                    <Image
+                      source={{ uri: vehicle.image }}
+                      style={styles.vehicleImage}
+                      resizeMode="cover"
+                    />
+
+                    <View style={styles.vehicleTypeBadge}>
+                      <Text style={styles.vehicleTypeBadgeText}>
+                        {vehicle.kind === 'Cars'
+                          ? 'CAR'
+                          : 'MOTORCYCLE'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.productCategory}>
+                    {vehicle.year} · {vehicle.mileage}
+                  </Text>
+
+                  <Text style={styles.vehicleName} numberOfLines={2}>
+                    {vehicle.name}
+                  </Text>
+
+                  <Text style={styles.vehiclePrice}>
+                    ₱{vehicle.price.toLocaleString('en-PH')}
+                  </Text>
+
+                  <Text style={styles.vehicleMeta}>
+                    {vehicle.transmission} · {vehicle.location}
+                  </Text>
+
+                  <View style={styles.vehicleSellerRow}>
+                    <View style={styles.sellerDot}>
+                      <Text style={styles.sellerDotText}>D</Text>
+                    </View>
+
+                    <Text
+                      style={styles.vehicleSeller}
+                      numberOfLines={1}
+                    >
+                      {vehicle.seller}
+                    </Text>
+                  </View>
+
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={
-                      isSuccessful
-                        ? `${product.name} added to cart`
-                        : `Add ${product.name} to cart`
+                    onPress={() =>
+                      Alert.alert(
+                        vehicle.name,
+                        `Seller: ${vehicle.seller}\nLocation: ${vehicle.location}\n\nVehicle detail pages and dealer inquiries will be added in the next dealership step.`,
+                      )
                     }
-                    accessibilityState={{
-                      disabled: isAnimatingRef.current,
-                    }}
-                    disabled={isAnimatingRef.current}
-                    onPress={() => handleAddToCart(product)}
                     style={({ pressed }) => [
-                      styles.addToCartButton,
-                      isSuccessful && styles.addToCartButtonSuccess,
+                      styles.vehicleInquiryButton,
                       pressed && styles.addToCartButtonPressed,
                     ]}
                   >
-                    <Text style={styles.addToCartButtonText}>
-                      {isSuccessful ? '✓ Added!' : '+ Add to Cart'}
+                    <Text style={styles.vehicleInquiryText}>
+                      View vehicle
                     </Text>
                   </Pressable>
-                </Animated.View>
-              </View>
-            );
-          })}
-        </View>
+                </View>
+              ))}
+            </View>
 
-        {filteredProducts.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No products found</Text>
-            <Text style={styles.sectionSubtitle}>
-              Try another search or category.
+            {filteredVehicles.length === 0 && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>
+                  No vehicles found
+                </Text>
+                <Text style={styles.sectionSubtitle}>
+                  Try another search or vehicle type.
+                </Text>
+              </View>
+            )}
+
+            <Text style={styles.footer}>
+              Your next ride starts here.
             </Text>
+          </>
+        ) : (
+          <View style={styles.comingSoon}>
+            <Text style={styles.comingSoonIcon}>
+              {activeMarket === 'foods' ? '🥗' : '🏡'}
+            </Text>
+
+            <Text style={styles.comingSoonEyebrow}>
+              SELLSPACE · COMING SOON
+            </Text>
+
+            <Text style={styles.comingSoonTitle}>
+              {activeMarket === 'foods'
+                ? 'Foods & Drinks'
+                : 'Real Estate'}
+            </Text>
+
+            <Text style={styles.comingSoonDescription}>
+              {activeMarket === 'foods'
+                ? 'Discover local food sellers, menus, and drinks. We are preparing this marketplace next.'
+                : 'Explore properties for sale and rent. This marketplace will be built after Dealership.'}
+            </Text>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setMarketPickerVisible(true)}
+              style={({ pressed }) => [
+                styles.comingSoonButton,
+                pressed && styles.addToCartButtonPressed,
+              ]}
+            >
+              <Text style={styles.comingSoonButtonText}>
+                Choose another market
+              </Text>
+            </Pressable>
           </View>
         )}
-
-        <Text style={styles.footer}>
-          A new way to discover good things.
-        </Text>
       </ScrollView>
+
+      <Modal
+        visible={marketPickerVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setMarketPickerVisible(false)}
+      >
+        <View style={styles.marketPickerOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close marketplace choices"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setMarketPickerVisible(false)}
+          />
+
+          <View style={styles.marketPickerSheet}>
+            <View style={styles.marketPickerHandle} />
+
+            <Text style={styles.marketPickerEyebrow}>
+              ONE APP · MORE POSSIBILITIES
+            </Text>
+            <Text style={styles.marketPickerTitle}>
+              Choose your market
+            </Text>
+            <Text style={styles.marketPickerDescription}>
+              Switch between different ways to discover and buy.
+            </Text>
+
+            {markets.map((market) => {
+              const selected = activeMarket === market.id;
+              const comingSoon =
+                market.id === 'foods' ||
+                market.id === 'realestate';
+
+              return (
+                <Pressable
+                  key={market.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => selectMarket(market.id)}
+                  style={({ pressed }) => [
+                    styles.marketOption,
+                    selected && styles.marketOptionSelected,
+                    pressed && styles.marketOptionPressed,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.marketOptionIcon,
+                      selected && styles.marketOptionIconSelected,
+                    ]}
+                  >
+                    <Text style={styles.marketOptionEmoji}>
+                      {market.icon}
+                    </Text>
+                  </View>
+
+                  <View style={styles.marketOptionCopy}>
+                    <Text style={styles.marketOptionTitle}>
+                      {market.title}
+                    </Text>
+                    <Text style={styles.marketOptionSubtitle}>
+                      {market.subtitle}
+                    </Text>
+                  </View>
+
+                  {comingSoon && (
+                    <Text style={styles.comingSoonTag}>SOON</Text>
+                  )}
+
+                  {selected && (
+                    <Text style={styles.marketOptionCheck}>✓</Text>
+                  )}
+                </Pressable>
+              );
+            })}
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setMarketPickerVisible(false)}
+              style={styles.marketPickerCancel}
+            >
+              <Text style={styles.marketPickerCancelText}>
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={logBookVisible}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setLogBookVisible(false)}
+      >
+        <View style={styles.logBookOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close LogBook"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setLogBookVisible(false)}
+          />
+          <Animated.View
+            style={[styles.logBookSheet, { height: logBookHeight }]}
+            accessibilityLabel="LogBook sheet. Drag the handle up to expand or down to collapse."
+          >
+            <View
+              {...logBookPanResponder.panHandlers}
+              style={styles.logBookDragArea}
+              accessibilityRole="adjustable"
+              accessibilityLabel="LogBook handle. Drag up to expand or down to collapse."
+            >
+              <View style={styles.marketPickerHandle} />
+            </View>
+            <View style={styles.logBookHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.marketPickerEyebrow}>
+                  DEALERSHIP · ACTIVITY
+                </Text>
+                <Text style={styles.logBookTitle}>My LogBook</Text>
+                <Text style={styles.logBookDescription}>
+                  Keep track of every buyer inquiry and vehicle appointment.
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close LogBook"
+                onPress={() => setLogBookVisible(false)}
+                style={styles.drawerClose}
+              >
+                <Text style={styles.drawerCloseText}>×</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.logBookStatusScroll}
+              contentContainerStyle={styles.logBookStatusList}
+            >
+              {['Inquiries', 'Schedules', 'Viewings', 'Completed', 'Cancelled'].map((status) => {
+                const selected = activeLogBookStatus === status;
+                return (
+                  <Pressable
+                    key={status}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => setActiveLogBookStatus(status)}
+                    style={[
+                      styles.logBookStatusPill,
+                      selected && styles.logBookStatusPillActive,
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.logBookStatusText,
+                        selected && styles.logBookStatusTextActive,
+                      ]}
+                    >
+                      {status}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.logBookEmptyState}>
+              <View style={styles.logBookEmptyIcon}>
+                <Text style={styles.logBookEmptyIconText}>▤</Text>
+              </View>
+              <Text style={styles.logBookEmptyTitle}>
+                No {activeLogBookStatus.toLowerCase()} yet
+              </Text>
+              <Text style={styles.logBookEmptyDescription}>
+                {activeLogBookStatus === 'Inquiries'
+                  ? 'Buyer inquiries about your vehicles will appear here.'
+                  : activeLogBookStatus === 'Schedules'
+                    ? 'Confirmed appointments will appear here.'
+                    : activeLogBookStatus === 'Viewings'
+                      ? 'Vehicle viewing activity will appear here.'
+                      : activeLogBookStatus === 'Completed'
+                        ? 'Completed transactions and visits will appear here.'
+                        : 'Cancelled inquiries and appointments will appear here.'}
+              </Text>
+              <Text style={styles.logBookFootnote}>
+                Your activity will appear here once inquiry and appointment flows are connected.
+              </Text>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
 
       <Modal
         visible={flyingProduct !== null}
@@ -724,14 +1375,22 @@ export default function HomeScreen() {
 
                   <View style={styles.drawerItemCopy}>
                     <Text style={styles.drawerItemText}>
-                      {item.title}
+                      {getMenuTitle(item.title)}
                     </Text>
 
-                    {item.title === 'Shopping Cart & Favorites' && (
-                      <Text style={styles.drawerItemSubtitle}>
-                        {cartCount} in cart · {favorites.length} saved
-                      </Text>
-                    )}
+                    {item.title === 'Shopping Cart & Favorites' &&
+                      activeMarket !== 'dealership' && (
+                        <Text style={styles.drawerItemSubtitle}>
+                          {cartCount} in cart · {favorites.length} saved
+                        </Text>
+                      )}
+
+                    {item.title === 'Shopping Cart & Favorites' &&
+                      activeMarket === 'dealership' && (
+                        <Text style={styles.drawerItemSubtitle}>
+                          Inquiries · appointments · vehicle viewings
+                        </Text>
+                      )}
                   </View>
 
                   <Text style={styles.drawerChevron}>›</Text>
@@ -784,6 +1443,21 @@ const styles = StyleSheet.create({
     fontSize: 27,
     fontWeight: '800',
     letterSpacing: -1.2,
+  },
+  brandSwitcher: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+  },
+  brandSwitcherPressed: {
+    opacity: 0.68,
+  },
+  brandChevron: {
+    color: COLORS.accent,
+    fontSize: 22,
+    fontWeight: '600',
+    marginTop: -5,
   },
   eyebrow: {
     color: COLORS.muted,
@@ -870,6 +1544,9 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   categoryPill: {
+    alignSelf: 'center',
+    flexGrow: 0,
+    flexShrink: 0,
     paddingHorizontal: 17,
     paddingVertical: 11,
     borderRadius: 24,
@@ -1197,5 +1874,445 @@ const styles = StyleSheet.create({
     color: COLORS.creamMuted,
     fontSize: 11,
     marginTop: 5,
+  },
+  marketPickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(17, 20, 18, 0.42)',
+  },
+  marketPickerSheet: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 28,
+  },
+  marketPickerHandle: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D9DDD9',
+    marginBottom: 22,
+  },
+  marketPickerEyebrow: {
+    color: COLORS.accent,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 7,
+  },
+  marketPickerTitle: {
+    color: COLORS.text,
+    fontSize: 23,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  marketPickerDescription: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 7,
+    marginBottom: 18,
+  },
+  marketOption: {
+    minHeight: 70,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 9,
+  },
+  marketOptionSelected: {
+    backgroundColor: '#F0F7F3',
+    borderColor: '#A8D1BF',
+  },
+  marketOptionPressed: {
+    opacity: 0.76,
+  },
+  marketOptionIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  marketOptionIconSelected: {
+    backgroundColor: '#DCEFE6',
+  },
+  marketOptionEmoji: {
+    fontSize: 22,
+  },
+  marketOptionCopy: {
+    flex: 1,
+  },
+  marketOptionTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  marketOptionSubtitle: {
+    color: COLORS.muted,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  comingSoonTag: {
+    color: COLORS.muted,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    backgroundColor: '#F1F2F0',
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: 7,
+  },
+  marketOptionCheck: {
+    color: COLORS.accent,
+    fontSize: 19,
+    fontWeight: '800',
+    marginHorizontal: 3,
+  },
+  marketPickerCancel: {
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 5,
+  },
+  marketPickerCancelText: {
+    color: COLORS.muted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  dealershipHero: {
+    backgroundColor: '#EAF2ED',
+    borderRadius: 22,
+    padding: 21,
+    marginBottom: 28,
+    overflow: 'hidden',
+  },
+  dealershipEyebrow: {
+    color: COLORS.accent,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    marginBottom: 12,
+  },
+  dealershipHeroTitle: {
+    color: '#0B3D33',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.9,
+  },
+  dealershipHeroDescription: {
+    color: '#537367',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 7,
+    maxWidth: 260,
+  },
+  vehicleStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 22,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#D2E2D8',
+  },
+  vehicleStat: {
+    flex: 1,
+  },
+  vehicleStatValue: {
+    color: '#0B3D33',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  vehicleStatLabel: {
+    color: '#537367',
+    fontSize: 10,
+    marginTop: 4,
+  },
+  vehicleStatDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#C8DCCF',
+    marginHorizontal: 14,
+  },
+  vehicleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 25,
+  },
+  vehicleCard: {
+    width: '48%',
+  },
+  vehicleImageWrap: {
+    position: 'relative',
+    backgroundColor: COLORS.surface,
+    borderRadius: 17,
+    overflow: 'hidden',
+    aspectRatio: 0.88,
+    marginBottom: 11,
+  },
+  vehicleImage: {
+    width: '100%',
+    height: '100%',
+  },
+  vehicleTypeBadge: {
+    position: 'absolute',
+    left: 8,
+    top: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+  },
+  vehicleTypeBadgeText: {
+    color: COLORS.creamText,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  vehicleName: {
+    color: COLORS.text,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    minHeight: 36,
+    marginTop: 5,
+  },
+  vehiclePrice: {
+    color: COLORS.accent,
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  vehicleMeta: {
+    color: COLORS.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 5,
+  },
+  vehicleSellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  sellerDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#DCEFE6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sellerDotText: {
+    color: COLORS.accent,
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  vehicleSeller: {
+    flex: 1,
+    color: COLORS.muted,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  vehicleInquiryButton: {
+    minHeight: 38,
+    borderRadius: 11,
+    backgroundColor: COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 11,
+    paddingHorizontal: 8,
+  },
+  vehicleInquiryText: {
+    color: COLORS.background,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  logBookOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(17, 20, 18, 0.42)',
+  },
+  logBookSheet: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 28,
+    overflow: 'hidden',
+  },
+  logBookDragArea: {
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  logBookHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 20,
+  },
+  logBookTitle: {
+    color: COLORS.text,
+    fontSize: 25,
+    fontWeight: '800',
+    letterSpacing: -0.7,
+    marginTop: 3,
+  },
+  logBookDescription: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 7,
+    maxWidth: 280,
+  },
+  logBookStatusScroll: {
+    height: 62,
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: 'stretch',
+  },
+  logBookStatusList: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    paddingBottom: 12,
+    paddingRight: 4,
+  },
+  logBookStatusPill: {
+    height: 44,
+    minHeight: 44,
+    paddingHorizontal: 17,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: 'center',
+  },
+  logBookStatusPillActive: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
+  },
+  logBookStatusText: {
+    color: COLORS.text,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+    includeFontPadding: false,
+    textAlign: 'center',
+  },
+  logBookStatusTextActive: {
+    color: COLORS.background,
+  },
+  logBookEmptyState: {
+    flex: 1,
+    minHeight: 260,
+    marginTop: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 28,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    backgroundColor: '#FCFCFB',
+  },
+  logBookEmptyIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: COLORS.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  logBookEmptyIconText: {
+    color: COLORS.accent,
+    fontSize: 30,
+    fontWeight: '700',
+  },
+  logBookEmptyTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  logBookEmptyDescription: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 8,
+    maxWidth: 270,
+  },
+  logBookFootnote: {
+    color: COLORS.creamMuted,
+    fontSize: 10,
+    lineHeight: 15,
+    textAlign: 'center',
+    marginTop: 18,
+    maxWidth: 270,
+  },
+  comingSoon: {
+    alignItems: 'center',
+    backgroundColor: COLORS.cream,
+    borderRadius: 22,
+    paddingHorizontal: 24,
+    paddingVertical: 38,
+    marginTop: 8,
+    marginBottom: 28,
+  },
+  comingSoonIcon: {
+    fontSize: 44,
+    marginBottom: 18,
+  },
+  comingSoonEyebrow: {
+    color: COLORS.accent,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+  },
+  comingSoonTitle: {
+    color: COLORS.creamText,
+    fontSize: 24,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 9,
+  },
+  comingSoonDescription: {
+    color: COLORS.creamMuted,
+    fontSize: 12,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  comingSoonButton: {
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    borderRadius: 12,
+    marginTop: 22,
+  },
+  comingSoonButtonText: {
+    color: COLORS.background,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
