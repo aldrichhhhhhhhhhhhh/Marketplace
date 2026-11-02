@@ -19,6 +19,7 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -78,7 +79,7 @@ type Section = 'cart' | 'favorites';
 export default function CartScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ section?: string }>();
-  const pagerRef = useRef<ScrollView>(null);
+  const pagerRef = useRef<ScrollViewInstance>(null);
   const hasLoadedPreference = useRef(false);
 
   const [activeSection, setActiveSection] = useState<Section>('cart');

@@ -15,6 +15,8 @@ import {
   Text,
   TextInput,
   View,
+  type PressableInstance,
+  type ViewInstance,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -274,8 +276,8 @@ export default function HomeScreen() {
   );
 
   const drawerX = useRef(new Animated.Value(drawerWidth)).current;
-  const cartButtonRef = useRef<View>(null);
-  const productImageRefs = useRef<Record<string, View | null>>({});
+const cartButtonRef = useRef<PressableInstance>(null);
+const productImageRefs = useRef<Record<string, ViewInstance | null>>({});
   const isAnimatingRef = useRef(false);
 
   const flyPosition = useRef(new Animated.ValueXY()).current;
@@ -555,10 +557,15 @@ export default function HomeScreen() {
       return;
     }
 
-    Alert.alert(
-      getMenuTitle(item),
-      'This feature will be built in a future step.',
-    );
+    if (item === 'Create Listing') {
+  router.push('/listing/create');
+  return;
+}
+
+Alert.alert(
+  getMenuTitle(item),
+  'This feature will be built in a future step.',
+);
   }
 
   const flyRotate = flyRotation.interpolate({

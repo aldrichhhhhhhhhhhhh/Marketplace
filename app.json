@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "SellSpace",
@@ -9,9 +8,11 @@
     "scheme": "marketplaceapp57",
     "userInterfaceStyle": "automatic",
     "ios": {
+       "bundleIdentifier": "com.vanttechnologies.sellspace",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.vanttechnologies.sellspace",
       "adaptiveIcon": {
         "backgroundColor": "#0A7F68",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -38,6 +39,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a3582d6d-ed0b-4b6f-9233-0ac5aa5d0214"
+      }
     }
   }
 }
