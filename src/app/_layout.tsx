@@ -1,35 +1,34 @@
-
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { MarketplaceProvider } from '@/context/MarketplaceContext';
+import { AuthProvider } from '@/context/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <MarketplaceProvider>
-        <ThemeProvider
-          value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}
-        >
-          <AnimatedSplashOverlay />
-
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="cart" />
-            <Stack.Screen name="checkout" />
-            <Stack.Screen name="favorites" />
-            <Stack.Screen name="listing/create" />
-            <Stack.Screen name="product/[id]" />
-          </Stack>
-        </ThemeProvider>
-      </MarketplaceProvider>
+      <AuthProvider>
+        <MarketplaceProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <AnimatedSplashOverlay />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="auth/sign-in" />
+              <Stack.Screen name="auth/sign-up" />
+              <Stack.Screen name="cart" />
+              <Stack.Screen name="checkout" />
+              <Stack.Screen name="favorites" />
+              <Stack.Screen name="listing/create" />
+              <Stack.Screen name="product/[id]" />
+            </Stack>
+          </ThemeProvider>
+        </MarketplaceProvider>
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 }

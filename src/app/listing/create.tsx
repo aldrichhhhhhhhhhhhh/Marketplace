@@ -20,6 +20,7 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LocationMap from '../../components/listing-map/LocationMap';
 import type { MapPoint } from '../../components/listing-map/LocationMap.types';
+import { supabase } from '../../lib/supabase';
 
 const GREEN = '#047857';
 const MAX_PHOTOS = 10;
@@ -149,12 +150,15 @@ export default function CreateListingScreen() {
   const [city, setCity] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [locationPoint, setLocationPoint] = useState<MapPoint | null>(null);
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [savedLocationLabel, setSavedLocationLabel] = useState('');
   const [locationSearch, setLocationSearch] = useState('');
   const [locationBusy, setLocationBusy] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [locationsLoaded, setLocationsLoaded] = useState(false);
+  const [locationSource, setLocationSource] = useState<'gps' | 'search' | 'map' | 'manual'>('search');
+  const [isPublishing, setIsPublishing] = useState(false);
   const [photos, setPhotos] = useState<ListingPhoto[]>([]);
   const [failedPhotoUris, setFailedPhotoUris] = useState<string[]>([]);
   const [loadedPhotoUris, setLoadedPhotoUris] = useState<string[]>([]);
@@ -189,8 +193,14 @@ export default function CreateListingScreen() {
   async function resolveAddress(latitude: number, longitude: number) {
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`;
-      const response = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!response.ok) return '';
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Reverse geocoding failed (${response.status}).`);
+      }
+
       const data = await response.json();
       return typeof data.display_name === 'string' ? data.display_name : '';
     } catch (error) {
@@ -200,41 +210,100 @@ export default function CreateListingScreen() {
   }
 
   async function handleMapPick(point: MapPoint) {
+    setLocationSource('map');
     setLocationPoint(point);
+    setLocationConfirmed(false);
     setLocationError('');
     setLocationBusy(true);
-    const address = await resolveAddress(point.latitude, point.longitude);
-    if (address) {
-      setLocationAddress(address);
-      setLocationSearch(address);
+
+    try {
+      const address = await resolveAddress(
+        point.latitude,
+        point.longitude,
+      );
+
+      if (address) {
+        setLocationAddress(address);
+        setLocationSearch(address);
+      } else {
+        setLocationError(
+          'Location captured. Please enter the address manually, then confirm the pin.',
+        );
+      }
+    } finally {
+      setLocationBusy(false);
     }
-    setLocationBusy(false);
   }
 
   async function useCurrentLocation() {
-    setLocationBusy(true);
     setLocationError('');
+    setLocationBusy(true);
+
     try {
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.geolocation) {
-        await new Promise<void>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(async (position) => {
-            const point = { latitude: position.coords.latitude, longitude: position.coords.longitude };
-            await handleMapPick(point);
-            resolve();
-          }, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+      let point: MapPoint;
+
+      if (
+        Platform.OS === 'web' &&
+        typeof navigator !== 'undefined' &&
+        navigator.geolocation
+      ) {
+        point = await new Promise<MapPoint>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              });
+            },
+            (error) => reject(error),
+            {
+              enableHighAccuracy: true,
+              timeout: 15000,
+              maximumAge: 30000,
+            },
+          );
         });
-        return;
+      } else {
+        const permission = await Location.requestForegroundPermissionsAsync();
+
+        if (!permission.granted) {
+          throw new Error('Location permission was denied.');
+        }
+
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        point = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
       }
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) {
-        setLocationError('Location permission was denied. Search for an address or tap the map to choose a location.');
-        return;
+
+      setLocationSource('gps');
+      setLocationPoint(point);
+      setLocationConfirmed(false);
+
+      const address = await resolveAddress(
+        point.latitude,
+        point.longitude,
+      );
+
+      if (address) {
+        setLocationAddress(address);
+        setLocationSearch(address);
+      } else {
+        setLocationError(
+          'GPS location found. Please enter the address manually, then confirm the pin.',
+        );
       }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      await handleMapPick({ latitude: position.coords.latitude, longitude: position.coords.longitude });
     } catch (error) {
       console.warn('Could not get current location:', error);
-      setLocationError('Could not get your current location. Search for an address or choose a point on the map.');
+      setLocationError(
+        error instanceof Error
+          ? error.message
+          : 'Could not get your current location. Try selecting a point on the map.',
+      );
     } finally {
       setLocationBusy(false);
     }
@@ -242,45 +311,79 @@ export default function CreateListingScreen() {
 
   async function searchLocation() {
     const query = locationSearch.trim();
+
     if (!query) {
       setLocationError('Enter an address or place to search.');
       return;
     }
+
     setLocationBusy(true);
     setLocationError('');
+
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' } });
-      if (!response.ok) throw new Error(`Search failed (${response.status})`);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`,
+        {
+          headers: { Accept: 'application/json' },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Address provider returned HTTP ${response.status}.`);
+      }
+
       const results = await response.json();
-      if (!Array.isArray(results) || !results.length) {
-        setLocationError('No matching location found. Try a more complete address or tap the map.');
+
+      if (!Array.isArray(results) || results.length === 0) {
+        setLocationError(
+          'No matching location found. Try adding your barangay, city, or province.',
+        );
         return;
       }
+
       const result = results[0];
-      const point = { latitude: Number(result.lat), longitude: Number(result.lon) };
-      if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)) throw new Error('Invalid coordinates');
+      const point: MapPoint = {
+        latitude: Number(result.lat),
+        longitude: Number(result.lon),
+      };
+
+      if (
+        !Number.isFinite(point.latitude) ||
+        !Number.isFinite(point.longitude)
+      ) {
+        throw new Error('The address provider returned invalid coordinates.');
+      }
+
+      setLocationSource('search');
       setLocationPoint(point);
       setLocationAddress(String(result.display_name || query));
       setLocationSearch(String(result.display_name || query));
+      setLocationConfirmed(false);
     } catch (error) {
       console.warn('Location search failed:', error);
-      setLocationError('Location search is temporarily unavailable. You can still select a point on the map and enter the address manually.');
+      setLocationError(
+        error instanceof Error
+          ? `Address search failed: ${error.message}`
+          : 'Address search is temporarily unavailable. You can still select a point on the map and enter the address manually.',
+      );
     } finally {
       setLocationBusy(false);
     }
   }
 
   function selectSavedLocation(item: SavedLocation) {
+    setLocationSource('manual');
     setLocationAddress(item.address);
     setLocationSearch(item.address);
     setLocationPoint({ latitude: item.latitude, longitude: item.longitude });
+    setLocationConfirmed(true);
     setLocationError('');
   }
 
   async function saveCurrentLocation() {
     const address = locationAddress.trim();
-    if (!address || !locationPoint) {
-      Alert.alert('Choose a location first', 'Search for an address or select a point on the map before saving it.');
+    if (!address || !locationPoint || !locationConfirmed) {
+      Alert.alert('Choose a location first', 'Select a point, enter its address, and confirm the location before saving it.');
       return;
     }
     const label = savedLocationLabel.trim();
@@ -406,8 +509,24 @@ export default function CreateListingScreen() {
       return;
     }
 
-    if (!locationAddress.trim() || !locationPoint || !Number.isFinite(locationPoint.latitude) || !Number.isFinite(locationPoint.longitude)) {
-      Alert.alert('Choose a location', 'Search for an address or select and confirm a point on the map before continuing.');
+    if (
+      !locationAddress.trim() ||
+      !locationPoint ||
+      !Number.isFinite(locationPoint.latitude) ||
+      !Number.isFinite(locationPoint.longitude)
+    ) {
+      Alert.alert(
+        'Choose a location',
+        'Please enter an address and select a valid point on the map.',
+      );
+      return;
+    }
+
+    if (!locationConfirmed) {
+      Alert.alert(
+        'Confirm your location',
+        'Please review your selected address and map pin, then tap "Use this location".',
+      );
       return;
     }
 
@@ -453,10 +572,137 @@ export default function CreateListingScreen() {
       return;
     }
 
-    Alert.alert(
-      'Form ready',
-      `Your listing details passed validation. Location: ${locationAddress}. Coordinates: ${locationPoint?.latitude.toFixed(6)}, ${locationPoint?.longitude.toFixed(6)}. Publishing and Supabase photo uploads are not connected yet.`,
-    );
+    void publishListing();
+  }
+
+  async function publishListing() {
+    if (isPublishing) return;
+    setIsPublishing(true);
+
+    let listingId: string | null = null;
+    const uploadedPaths: string[] = [];
+
+    try {
+      const { data: userResult, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      const user = userResult.user;
+      if (!user) {
+        Alert.alert('Sign in required', 'Please sign in to publish a listing. Your listing details are still on this screen.');
+        return;
+      }
+
+      const trimmedTitle = title.trim();
+      const trimmedDescription = description.trim();
+      const numericPrice = Number(price.trim());
+      const trimmedCity = city.trim();
+      const { data: createdListing, error: listingError } = await supabase
+        .from('listings')
+        .insert({
+          seller_id: user.id,
+          listing_type: category,
+          title: trimmedTitle,
+          description: trimmedDescription,
+          price: numericPrice,
+          currency: 'PHP',
+          category: null,
+          condition,
+          city: trimmedCity || null,
+          status: 'draft',
+          attributes: {},
+          location_address: locationAddress.trim(),
+          latitude: locationPoint!.latitude,
+          longitude: locationPoint!.longitude,
+          location_source: locationSource,
+        } as never)
+        .select('id')
+        .single();
+
+      if (listingError) throw listingError;
+      if (!createdListing?.id) throw new Error('Supabase created the draft but did not return its listing ID.');
+      listingId = createdListing.id;
+
+      const mediaRows: {
+        listing_id: string;
+        storage_path: string;
+        media_type: string;
+        sort_order: number;
+        alt_text: string;
+      }[] = [];
+
+      for (let index = 0; index < photos.length; index += 1) {
+        const photo = photos[index];
+        const mimeType = photo.mimeType.toLowerCase();
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+          throw new Error(`Photo ${index + 1} uses an unsupported format. Please use JPEG, PNG, or WebP.`);
+        }
+
+        const response = await fetch(photo.uri);
+        if (!response.ok) throw new Error(`Could not read photo ${index + 1} from your device.`);
+        const blob = await response.blob();
+        if (blob.size > 10 * 1024 * 1024) {
+          throw new Error(`Photo ${index + 1} exceeds the 10 MB upload limit.`);
+        }
+
+        const extension = mimeType === 'image/jpeg' ? 'jpg' : mimeType.split('/')[1];
+        const safeBaseName = photo.fileName
+          .replace(/\.[^.]+$/, '')
+          .replace(/[^a-zA-Z0-9_-]/g, '-')
+          .slice(0, 60) || `photo-${index + 1}`;
+        const storagePath = `${user.id}/${listingId}/${String(index + 1).padStart(2, '0')}-${safeBaseName}.${extension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('listing-images')
+          .upload(storagePath, blob, {
+            contentType: mimeType,
+            upsert: false,
+          });
+        if (uploadError) throw new Error(`Photo ${index + 1} upload failed: ${uploadError.message}`);
+
+        uploadedPaths.push(storagePath);
+        mediaRows.push({
+          listing_id: listingId,
+          storage_path: storagePath,
+          media_type: 'image',
+          sort_order: index,
+          alt_text: `${trimmedTitle} photo ${index + 1}`,
+        });
+      }
+
+      const { error: mediaError } = await supabase.from('listing_media').insert(mediaRows);
+      if (mediaError) throw new Error(`Photos uploaded, but their listing records could not be saved: ${mediaError.message}`);
+
+      const { error: activateError } = await supabase
+        .from('listings')
+        .update({ status: 'active' } as never)
+        .eq('id', listingId)
+        .eq('seller_id', user.id);
+      if (activateError) throw new Error(`Your listing and photos are saved as a draft, but activation failed: ${activateError.message}`);
+
+      Alert.alert('Listing published', 'Your listing is now live on SELLSPACE.', [
+        { text: 'Continue', onPress: () => router.back() },
+      ]);
+    } catch (error) {
+      console.error('SELLSPACE listing publish failed:', error);
+      if (uploadedPaths.length > 0) {
+        const { error: cleanupError } = await supabase.storage
+          .from('listing-images')
+          .remove(uploadedPaths);
+        if (cleanupError) console.warn('Could not clean up partially uploaded listing images:', cleanupError);
+      }
+      if (listingId) {
+        const { error: mediaCleanupError } = await supabase
+          .from('listing_media')
+          .delete()
+          .eq('listing_id', listingId);
+        if (mediaCleanupError) console.warn('Could not clean up partial listing media records:', mediaCleanupError);
+      }
+      Alert.alert(
+        'Could not publish listing',
+        `${error instanceof Error ? error.message : 'An unexpected error occurred.'}${listingId ? '\n\nYour listing draft has been retained. You can retry publishing after resolving the issue.' : ''}`,
+      );
+    } finally {
+      setIsPublishing(false);
+    }
   }
 
   function renderPhoto(item: ListingPhoto, index: number) {
@@ -785,16 +1031,55 @@ export default function CreateListingScreen() {
           <TextInput
             value={locationAddress}
             onChangeText={(value) => {
+              setLocationSource('manual');
               setLocationAddress(value);
-              setLocationPoint(null);
               setLocationSearch(value);
+              setLocationConfirmed(false);
             }}
             placeholder="Selected address (or enter it manually)"
             placeholderTextColor="#9CA39D"
             style={styles.input}
             multiline
           />
-          {locationPoint && <Text style={styles.coordinatesText}>Pin: {locationPoint.latitude.toFixed(6)}, {locationPoint.longitude.toFixed(6)}</Text>}
+          {locationPoint && (
+            <View style={styles.locationConfirmation}>
+              <Text style={styles.coordinatesText}>
+                Selected pin: {locationPoint.latitude.toFixed(6)},{' '}
+                {locationPoint.longitude.toFixed(6)}
+              </Text>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  if (!locationAddress.trim()) {
+                    setLocationError(
+                      'Please enter the address associated with this pin before confirming.',
+                    );
+                    return;
+                  }
+
+                  setLocationConfirmed(true);
+                  setLocationError('');
+                }}
+                style={[
+                  styles.locationConfirmButton,
+                  locationConfirmed && styles.locationConfirmedButton,
+                ]}
+              >
+                <Text style={styles.locationConfirmButtonText}>
+                  {locationConfirmed
+                    ? '✓ Location confirmed'
+                    : 'Use this location'}
+                </Text>
+              </Pressable>
+
+              <Text style={styles.locationHelp}>
+                {locationConfirmed
+                  ? 'This location is confirmed for your listing.'
+                  : 'Check the address and map pin, then confirm this location.'}
+              </Text>
+            </View>
+          )}
 
           <Text style={styles.label}>Save this location for next time</Text>
           <TextInput
@@ -826,12 +1111,13 @@ export default function CreateListingScreen() {
 
         <Pressable
           onPress={validateForm}
+          disabled={isPublishing}
           style={({ pressed }) => [
             styles.publishButton,
-            pressed && styles.buttonPressed,
+            (pressed || isPublishing) && styles.buttonPressed,
           ]}
         >
-          <Text style={styles.publishText}>Continue to publish →</Text>
+          {isPublishing ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.publishText}>Publish listing →</Text>}
         </Pressable>
 
         <Text style={styles.footerNote}>
@@ -1225,6 +1511,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DCE4DC',
     backgroundColor: '#EAF0EA',
+  },
+  locationConfirmation: {
+    marginTop: 12,
+    gap: 10,
+  },
+  locationConfirmButton: {
+    backgroundColor: GREEN,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  locationConfirmedButton: {
+    backgroundColor: '#065F46',
+  },
+  locationConfirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   coordinatesText: { marginTop: 8, color: '#47534A', fontSize: 11, fontWeight: '700' },
   saveLocationButton: {

@@ -12,6 +12,8 @@ export type PublicListing = MarketplaceProduct & {
   currency: string;
 };
 
+const LISTING_IMAGES_BUCKET = 'listing-images';
+
 export async function getActiveListings(): Promise<PublicListing[]> {
   const { data, error } = await supabase
     .from('listings')
@@ -46,12 +48,23 @@ export async function getActiveListings(): Promise<PublicListing[]> {
       .filter((item) => item.media_type === 'image')
       .sort((a, b) => a.sort_order - b.sort_order);
 
+    const imagePath = media[0]?.storage_path ?? '';
+
+    const image = imagePath
+      ? imagePath.startsWith('http://') ||
+        imagePath.startsWith('https://')
+        ? imagePath
+        : supabase.storage
+            .from(LISTING_IMAGES_BUCKET)
+            .getPublicUrl(imagePath).data.publicUrl
+      : '';
+
     return {
       id: listing.id,
       name: listing.title,
-      price: Number(listing.price),
+      price: listing.price,
       category: listing.category ?? listing.listing_type,
-      image: media[0]?.storage_path ?? '',
+      image,
       description: listing.description ?? '',
       listingType: listing.listing_type,
       businessId: listing.business_id,

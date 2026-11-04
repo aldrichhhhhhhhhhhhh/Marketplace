@@ -1,4 +1,5 @@
 import { useMarketplace } from '@/context/MarketplaceContext';
+import { getActiveListings, type PublicListing } from '@/lib/listings';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -62,97 +63,7 @@ const markets = [
   },
 ] as const;
 
-const vehicles = [
-  {
-    id: 'car-1',
-    name: 'Toyota Vios 1.3 XLE',
-    price: 625000,
-    kind: 'Cars',
-    year: '2022',
-    mileage: '28,000 km',
-    transmission: 'Automatic',
-    location: 'Quezon City',
-    seller: 'Sample Motors',
-    image:
-      'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=900',
-  },
-  {
-    id: 'car-2',
-    name: 'Honda Civic RS',
-    price: 1180000,
-    kind: 'Cars',
-    year: '2023',
-    mileage: '16,500 km',
-    transmission: 'Automatic',
-    location: 'Makati City',
-    seller: 'Metro Auto Hub',
-    image:
-      'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900',
-  },
-  {
-    id: 'moto-1',
-    name: 'Yamaha NMAX 155',
-    price: 118000,
-    kind: 'Motorcycles',
-    year: '2024',
-    mileage: '4,200 km',
-    transmission: 'Automatic',
-    location: 'Pasig City',
-    seller: 'RideReady Motors',
-    image:
-      'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=900',
-  },
-  {
-    id: 'moto-2',
-    name: 'Honda Click 160',
-    price: 92000,
-    kind: 'Motorcycles',
-    year: '2023',
-    mileage: '7,800 km',
-    transmission: 'Automatic',
-    location: 'Manila',
-    seller: 'City Cycle Trading',
-    image:
-      'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=900',
-  },
-] as const;
-
-const products = [
-  {
-    id: '1',
-    name: 'Everyday Tote Bag',
-    price: 649,
-    category: 'Fashion',
-    image:
-      'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=700',
-  },
-  {
-    id: '2',
-    name: 'Wireless Headphones',
-    price: 1299,
-    category: 'Electronics',
-    image:
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700',
-  },
-  {
-    id: '3',
-    name: 'Minimal Desk Lamp',
-    price: 899,
-    category: 'Home',
-    image:
-      'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=700',
-  },
-  {
-    id: '4',
-    name: 'Daily Essentials',
-    price: 499,
-    category: 'Beauty',
-    image:
-      'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=700',
-  },
-];
-
-type Product = (typeof products)[number];
+type Product = PublicListing;
 type MarketId = (typeof markets)[number]['id'];
 type VehicleType = 'All' | 'Cars' | 'Motorcycles';
 
@@ -175,6 +86,10 @@ type FlyingProduct = {
 
 export default function HomeScreen() {
   const router = useRouter();
+
+  const [listings, setListings] = useState<PublicListing[]>([]);
+  const [listingsLoading, setListingsLoading] = useState(true);
+  const [listingsError, setListingsError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
@@ -289,29 +204,78 @@ const productImageRefs = useRef<Record<string, ViewInstance | null>>({});
 
   const previousCartCount = useRef(cartCount);
 
-  const filteredProducts = products.filter((product) => {
+  const marketplaceListings = listings.filter(
+    (listing) => listing.listingType === 'product',
+  );
+
+  const vehicleListings = listings.filter(
+    (listing) => listing.listingType === 'vehicle',
+  );
+
+  const filteredProducts = marketplaceListings.filter((product) => {
     const matchesCategory =
       category === 'All' || product.category === category;
 
-    const matchesSearch = product.name
-      .toLowerCase()
-      .includes(search.toLowerCase());
+    const matchesSearch =
+      `${product.name} ${product.category} ${product.city ?? ''}`
+        .toLowerCase()
+        .includes(search.toLowerCase());
 
     return matchesCategory && matchesSearch;
   });
 
-  const filteredVehicles = vehicles.filter((vehicle) => {
+  const filteredVehicles = vehicleListings.filter((vehicle) => {
+    const normalizedCategory = vehicle.category.toLowerCase();
     const matchesType =
-      vehicleType === 'All' || vehicle.kind === vehicleType;
+      vehicleType === 'All' ||
+      (vehicleType === 'Cars'
+        ? normalizedCategory.includes('car')
+        : normalizedCategory.includes('motorcycle') ||
+          normalizedCategory.includes('motorbike'));
 
     const searchableText =
-      `${vehicle.name} ${vehicle.seller} ${vehicle.location} ${vehicle.year}`;
+      `${vehicle.name} ${vehicle.category} ${vehicle.city ?? ''} ${vehicle.condition ?? ''}`;
 
     return (
       matchesType &&
       searchableText.toLowerCase().includes(search.toLowerCase())
     );
   });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadListings() {
+      try {
+        setListingsLoading(true);
+        setListingsError(null);
+
+        const activeListings = await getActiveListings();
+
+        if (isMounted) {
+          setListings(activeListings);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setListingsError(
+            error instanceof Error
+              ? error.message
+              : 'Unable to load marketplace listings.',
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setListingsLoading(false);
+        }
+      }
+    }
+
+    loadListings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (previousCartCount.current === cartCount) {
@@ -736,7 +700,28 @@ Alert.alert(
               </Text>
             </View>
 
-            <View style={styles.productGrid}>
+            {listingsLoading && (
+              <View style={styles.emptyState}>
+                <Text style={styles.sectionSubtitle}>
+                  Loading marketplace listings...
+                </Text>
+              </View>
+            )}
+
+            {!listingsLoading && listingsError && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>
+                  We couldn't load listings
+                </Text>
+                <Text style={styles.sectionSubtitle}>
+                  {listingsError}
+                </Text>
+              </View>
+            )}
+
+            {!listingsLoading && !listingsError && (
+  <>
+    <View style={styles.productGrid}>
               {filteredProducts.map((product) => {
                 const productIsFavorite = isFavorite(product.id);
                 const isSuccessful =
@@ -854,7 +839,7 @@ Alert.alert(
               })}
             </View>
 
-            {filteredProducts.length === 0 && (
+           {filteredProducts.length === 0 && (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyTitle}>
                   No products found
@@ -864,6 +849,8 @@ Alert.alert(
                 </Text>
               </View>
             )}
+          </>
+        )}
 
             <Text style={styles.footer}>
               A new way to discover good things.
@@ -962,6 +949,27 @@ Alert.alert(
               )}
             </ScrollView>
 
+            {listingsLoading && (
+              <View style={styles.emptyState}>
+                <Text style={styles.sectionSubtitle}>
+                  Loading vehicle listings...
+                </Text>
+              </View>
+            )}
+
+            {!listingsLoading && listingsError && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>
+                  We couldn't load vehicle listings
+                </Text>
+                <Text style={styles.sectionSubtitle}>
+                  {listingsError}
+                </Text>
+              </View>
+            )}
+
+            {!listingsLoading && !listingsError && (
+              <>
             <View style={styles.vehicleGrid}>
               {filteredVehicles.map((vehicle) => (
                 <View key={vehicle.id} style={styles.vehicleCard}>
@@ -974,15 +982,13 @@ Alert.alert(
 
                     <View style={styles.vehicleTypeBadge}>
                       <Text style={styles.vehicleTypeBadgeText}>
-                        {vehicle.kind === 'Cars'
-                          ? 'CAR'
-                          : 'MOTORCYCLE'}
+                        {vehicle.category || 'VEHICLE'}
                       </Text>
                     </View>
                   </View>
 
                   <Text style={styles.productCategory}>
-                    {vehicle.year} · {vehicle.mileage}
+                    {vehicle.condition || 'Vehicle listing'}
                   </Text>
 
                   <Text style={styles.vehicleName} numberOfLines={2}>
@@ -994,7 +1000,7 @@ Alert.alert(
                   </Text>
 
                   <Text style={styles.vehicleMeta}>
-                    {vehicle.transmission} · {vehicle.location}
+                    {vehicle.city || 'Location not provided'}
                   </Text>
 
                   <View style={styles.vehicleSellerRow}>
@@ -1006,7 +1012,7 @@ Alert.alert(
                       style={styles.vehicleSeller}
                       numberOfLines={1}
                     >
-                      {vehicle.seller}
+                      Seller account
                     </Text>
                   </View>
 
@@ -1015,7 +1021,7 @@ Alert.alert(
                     onPress={() =>
                       Alert.alert(
                         vehicle.name,
-                        `Seller: ${vehicle.seller}\nLocation: ${vehicle.location}\n\nVehicle detail pages and dealer inquiries will be added in the next dealership step.`,
+                        `Price: ₱${vehicle.price.toLocaleString('en-PH')}\nCategory: ${vehicle.category}\nLocation: ${vehicle.city || 'Not provided'}\nCondition: ${vehicle.condition || 'Not specified'}`,
                       )
                     }
                     style={({ pressed }) => [
@@ -1041,7 +1047,11 @@ Alert.alert(
                 </Text>
               </View>
             )}
+                     
+          
 
+              </>
+            )}
             <Text style={styles.footer}>
               Your next ride starts here.
             </Text>
