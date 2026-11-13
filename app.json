@@ -8,7 +8,7 @@
     "scheme": "marketplaceapp57",
     "userInterfaceStyle": "automatic",
     "ios": {
-       "bundleIdentifier": "com.vanttechnologies.sellspace",
+      "bundleIdentifier": "com.vanttechnologies.sellspace",
       "icon": "./assets/expo.icon"
     },
     "android": {
@@ -34,7 +34,8 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200
         }
-      ]
+      ],
+      
     ],
     "experiments": {
       "typedRoutes": true,

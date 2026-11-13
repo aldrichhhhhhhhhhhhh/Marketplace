@@ -1,8 +1,8 @@
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useAuth } from '@/context/AuthContext';
 const GREEN = '#087F68';
 
 export default function SignUpScreen() {

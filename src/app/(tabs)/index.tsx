@@ -970,93 +970,92 @@ Alert.alert(
 
             {!listingsLoading && !listingsError && (
               <>
-            <View style={styles.vehicleGrid}>
-              {filteredVehicles.map((vehicle) => (
-                <View key={vehicle.id} style={styles.vehicleCard}>
-                  <View style={styles.vehicleImageWrap}>
-                    <Image
-                      source={{ uri: vehicle.image }}
-                      style={styles.vehicleImage}
-                      resizeMode="cover"
-                    />
+                <View style={styles.vehicleGrid}>
+                  {filteredVehicles.map((vehicle) => (
+                    <View key={vehicle.id} style={styles.vehicleCard}>
+                      <View style={styles.vehicleImageWrap}>
+                        <Image
+                          source={{ uri: vehicle.image }}
+                          style={styles.vehicleImage}
+                          resizeMode="cover"
+                        />
 
-                    <View style={styles.vehicleTypeBadge}>
-                      <Text style={styles.vehicleTypeBadgeText}>
-                        {vehicle.category || 'VEHICLE'}
+                        <View style={styles.vehicleTypeBadge}>
+                          <Text style={styles.vehicleTypeBadgeText}>
+                            {vehicle.category || 'VEHICLE'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.productCategory}>
+                        {vehicle.condition || 'Vehicle listing'}
                       </Text>
+
+                      <Text style={styles.vehicleName} numberOfLines={2}>
+                        {vehicle.name}
+                      </Text>
+
+                      <Text style={styles.vehiclePrice}>
+                        ₱{vehicle.price.toLocaleString('en-PH')}
+                      </Text>
+
+                      <Text style={styles.vehicleMeta}>
+                        {vehicle.city || 'Location not provided'}
+                      </Text>
+
+                      <View style={styles.vehicleSellerRow}>
+                        <View style={styles.sellerDot}>
+                          <Text style={styles.sellerDotText}>D</Text>
+                        </View>
+
+                        <Text
+                          style={styles.vehicleSeller}
+                          numberOfLines={1}
+                        >
+                          Seller account
+                        </Text>
+                      </View>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() =>
+                          Alert.alert(
+                            vehicle.name,
+                            `Price: ₱${vehicle.price.toLocaleString('en-PH')}\nCategory: ${vehicle.category}\nLocation: ${vehicle.city || 'Not provided'}\nCondition: ${vehicle.condition || 'Not specified'}`,
+                          )
+                        }
+                        style={({ pressed }) => [
+                          styles.vehicleInquiryButton,
+                          pressed && styles.addToCartButtonPressed,
+                        ]}
+                      >
+                        <Text style={styles.vehicleInquiryText}>
+                          View vehicle
+                        </Text>
+                      </Pressable>
                     </View>
-                  </View>
-
-                  <Text style={styles.productCategory}>
-                    {vehicle.condition || 'Vehicle listing'}
-                  </Text>
-
-                  <Text style={styles.vehicleName} numberOfLines={2}>
-                    {vehicle.name}
-                  </Text>
-
-                  <Text style={styles.vehiclePrice}>
-                    ₱{vehicle.price.toLocaleString('en-PH')}
-                  </Text>
-
-                  <Text style={styles.vehicleMeta}>
-                    {vehicle.city || 'Location not provided'}
-                  </Text>
-
-                  <View style={styles.vehicleSellerRow}>
-                    <View style={styles.sellerDot}>
-                      <Text style={styles.sellerDotText}>D</Text>
-                    </View>
-
-                    <Text
-                      style={styles.vehicleSeller}
-                      numberOfLines={1}
-                    >
-                      Seller account
-                    </Text>
-                  </View>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() =>
-                      Alert.alert(
-                        vehicle.name,
-                        `Price: ₱${vehicle.price.toLocaleString('en-PH')}\nCategory: ${vehicle.category}\nLocation: ${vehicle.city || 'Not provided'}\nCondition: ${vehicle.condition || 'Not specified'}`,
-                      )
-                    }
-                    style={({ pressed }) => [
-                      styles.vehicleInquiryButton,
-                      pressed && styles.addToCartButtonPressed,
-                    ]}
-                  >
-                    <Text style={styles.vehicleInquiryText}>
-                      View vehicle
-                    </Text>
-                  </Pressable>
+                  ))}
                 </View>
-              ))}
-            </View>
 
-            {filteredVehicles.length === 0 && (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>
-                  No vehicles found
-                </Text>
-                <Text style={styles.sectionSubtitle}>
-                  Try another search or vehicle type.
-                </Text>
-              </View>
-            )}
-                     
-          
-
+                {filteredVehicles.length === 0 && (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyTitle}>
+                      No vehicles found
+                    </Text>
+                    <Text style={styles.sectionSubtitle}>
+                      Try another search or vehicle type.
+                    </Text>
+                  </View>
+                )}
               </>
             )}
+
             <Text style={styles.footer}>
               Your next ride starts here.
             </Text>
           </>
         ) : (
+
           <View style={styles.comingSoon}>
             <Text style={styles.comingSoonIcon}>
               {activeMarket === 'foods' ? '🥗' : '🏡'}
