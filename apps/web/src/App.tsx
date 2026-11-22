@@ -6,8 +6,8 @@ type Product = { id: number; name: string; store: string; price: number; categor
 const products: Product[] = [
   { id: 1, name: 'Everyday Canvas Tote', store: 'Common Goods', price: 549, category: 'Fashion', badge: 'Bestseller', image: 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=700&q=85' },
   { id: 2, name: 'Minimal Ceramic Set', store: 'Sunday Studio', price: 890, category: 'Home', image: 'https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?w=700&q=85' },
-  { id: 3, name: 'Wireless Headphones', store: 'North Audio', price: 2190, category: 'Electronics', badge: 'Popular', image: 'https://images.unsplash.com/photo-150 speaker?w=700&q=85' },
-  { id: 4, name: 'Daily Skin Essentials', store: 'Kindred Care', price: 680, category: 'Beauty', image: 'https://images.unsplash.com/photo-160 космет?w=700&q=85' },
+  { id: 3, name: 'Wireless Headphones', store: 'North Audio', price: 2190, category: 'Electronics', badge: 'Popular', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700&q=85' },
+  { id: 4, name: 'Daily Skin Essentials', store: 'Kindred Care', price: 680, category: 'Beauty', image: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=700&q=85' },
   { id: 5, name: 'Classic Everyday Sneaker', store: 'Form Footwear', price: 1590, category: 'Fashion', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=700&q=85' },
   { id: 6, name: 'Soft Lounge Chair', store: 'Sunday Studio', price: 4250, category: 'Home', image: 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=700&q=85' },
   { id: 7, name: 'Compact Digital Camera', store: 'North Audio', price: 3890, category: 'Electronics', image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=700&q=85' },
