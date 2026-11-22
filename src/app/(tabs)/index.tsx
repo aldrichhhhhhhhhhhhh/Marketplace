@@ -15,6 +15,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
   type PressableInstance,
   type ViewInstance,
 } from 'react-native';
