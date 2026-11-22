@@ -175,6 +175,10 @@ type FlyingProduct = {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth >= 1100;
+  const isTablet = windowWidth >= 700 && windowWidth < 1100;
+  const productCardWidth = isDesktop ? '23.5%' : isTablet ? '31.5%' : '48%';
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
@@ -736,20 +740,20 @@ Alert.alert(
               </Text>
             </View>
 
-            <View style={styles.productGrid}>
+            <View style={[styles.productGrid, isDesktop && styles.productGridDesktop]}>
               {filteredProducts.map((product) => {
                 const productIsFavorite = isFavorite(product.id);
                 const isSuccessful =
                   successfulProductId === product.id;
 
                 return (
-                  <View key={product.id} style={styles.productCard}>
+                  <View key={product.id} style={[styles.productCard, { width: productCardWidth }]}>
                     <View
                       ref={(ref) => {
                         productImageRefs.current[product.id] = ref;
                       }}
                       collapsable={false}
-                      style={styles.productImageWrap}
+                      style={[styles.productImageWrap, isDesktop && styles.productImageWrapDesktop]}
                     >
                       <Image
                         source={{ uri: product.image }}
@@ -962,10 +966,10 @@ Alert.alert(
               )}
             </ScrollView>
 
-            <View style={styles.vehicleGrid}>
+            <View style={[styles.vehicleGrid, isDesktop && styles.productGridDesktop]}>
               {filteredVehicles.map((vehicle) => (
-                <View key={vehicle.id} style={styles.vehicleCard}>
-                  <View style={styles.vehicleImageWrap}>
+                <View key={vehicle.id} style={[styles.vehicleCard, { width: productCardWidth }]}>
+                  <View style={[styles.vehicleImageWrap, isDesktop && styles.vehicleImageWrapDesktop]}>
                     <Image
                       source={{ uri: vehicle.image }}
                       style={styles.vehicleImage}
@@ -1625,6 +1629,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     rowGap: 26,
   },
+  productGridDesktop: {
+    columnGap: 0,
+    rowGap: 30,
+  },
   productCard: {
     width: '48%',
   },
@@ -1637,6 +1645,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     aspectRatio: 0.82,
     marginBottom: 12,
+  },
+  productImageWrapDesktop: {
+    aspectRatio: 1.05,
+    borderRadius: 14,
+    marginBottom: 9,
   },
   productImage: {
     width: '100%',
@@ -2065,6 +2078,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     aspectRatio: 0.88,
     marginBottom: 11,
+  },
+  vehicleImageWrapDesktop: {
+    aspectRatio: 1.1,
+    borderRadius: 14,
+    marginBottom: 9,
   },
   vehicleImage: {
     width: '100%',
