@@ -6,7 +6,7 @@ import {
   TabTrigger,
   TabTriggerSlotProps,
 } from 'expo-router/ui';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 const COLORS = {
   accent: '#087F68',
@@ -58,13 +58,9 @@ export function TabButton({
         pressed && styles.tabButtonPressed,
       ]}
     >
-      <View>
-        {typeof children === 'string' ? (
-          <>{children}</>
-        ) : (
-          children
-        )}
-      </View>
+      <Text style={[styles.tabLabel, isFocused && styles.tabLabelSelected]}>
+        {children}
+      </Text>
     </Pressable>
   );
 }
@@ -112,5 +108,13 @@ const styles = StyleSheet.create({
   },
   tabButtonPressed: {
     opacity: 0.72,
+  },
+  tabLabel: {
+    color: COLORS.muted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabLabelSelected: {
+    color: COLORS.accent,
   },
 });
