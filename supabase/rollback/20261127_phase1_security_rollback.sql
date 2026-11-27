@@ -2,7 +2,7 @@
 -- Do not run as routine maintenance. This restores the pre-migration vulnerable
 -- authorization and broad grants from the 2026-11-27 catalog snapshot.
 -- Requires explicit approval and a fresh preflight comparison.
--- Run this file only if both 20261127000100 and 20261127000200 were applied,
+-- Run this file only if migrations 20261127000100, 20261127000200, and 20261127000300 were applied,
 -- and only in reverse migration order.
 
 begin;
@@ -28,7 +28,7 @@ to authenticated
 with check (customer_id = (select auth.uid()));
 
 -- Roll back migration 002: restore the prior anonymous table grants.
-grant all privileges on table
+grant select, insert, update, delete, truncate, references, trigger, maintain on table
   public.appointments,
   public.business_members,
   public.businesses,
