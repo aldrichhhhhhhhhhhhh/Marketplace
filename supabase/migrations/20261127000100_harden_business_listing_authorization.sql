@@ -1,7 +1,8 @@
 -- SELLSPACE: secure business listing ownership and workspace authorization.
 -- Prepared 2026-11-27. Review and test on an isolated database before production.
--- This migration intentionally does NOT alter grants, Storage policies, Auth settings,
--- listing-location columns, or existing data.
+-- This migration changes only the private helper/schema EXECUTE grants needed for RLS.
+-- It does NOT alter table grants, Storage policies, Auth settings, listing-location
+-- columns, or existing data.
 
 begin;
 
