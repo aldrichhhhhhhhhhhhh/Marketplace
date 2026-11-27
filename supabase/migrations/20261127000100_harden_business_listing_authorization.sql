@@ -125,9 +125,10 @@ with check (
 );
 
 -- A seller can manage their own personal listing or their own listing while
--- still belonging to that business workspace. The business owner can manage
--- every listing in their workspace. Mere membership is not sufficient to
--- update another seller's listing.
+-- still belonging to that business workspace. The business owner can update
+-- workspace listings, but cannot delete another seller's listing until a
+-- trusted backend cleanup flow can also remove its Storage objects. Mere
+-- membership is not sufficient to update or delete another seller's listing.
 drop policy if exists "Sellers can update their own listings" on public.listings;
 create policy "Sellers can update their own listings"
 on public.listings
@@ -166,16 +167,10 @@ on public.listings
 for delete
 to authenticated
 using (
-  (
-    seller_id = (select auth.uid())
-    and (
-      business_id is null
-      or private.is_business_member(business_id)
-    )
-  )
-  or (
-    business_id is not null
-    and private.is_business_owner(business_id)
+  seller_id = (select auth.uid())
+  and (
+    business_id is null
+    or private.is_business_member(business_id)
   )
 );
 
