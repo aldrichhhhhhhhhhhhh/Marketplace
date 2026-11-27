@@ -7,6 +7,26 @@
 
 begin;
 
+-- Roll back migration 003 first: restore the pre-migration business,
+-- membership, appointment and notification client permissions/policies.
+grant insert, update on table public.businesses to authenticated;
+grant insert, update, delete on table public.business_members to authenticated;
+grant update on table public.notifications to authenticated;
+
+drop policy if exists "Business owners can create pending businesses" on public.businesses;
+create policy "Business owners can create businesses"
+on public.businesses
+for insert
+to authenticated
+with check (owner_id = (select auth.uid()));
+
+drop policy if exists "Customers can request appointments" on public.appointments;
+create policy "Customers can request appointments"
+on public.appointments
+for insert
+to authenticated
+with check (customer_id = (select auth.uid()));
+
 -- Roll back migration 002: restore the prior anonymous table grants.
 grant all privileges on table
   public.appointments,
