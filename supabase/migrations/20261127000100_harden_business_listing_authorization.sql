@@ -178,6 +178,33 @@ using (
   )
 );
 
+-- Public visitors can see media for active listings. Authenticated members
+-- (including the business owner) can also see media for their own workspace's
+-- drafts without receiving mutation rights over another seller's media.
+drop policy if exists "Anyone can view media for active listings" on public.listing_media;
+create policy "Anyone can view media for active listings"
+on public.listing_media
+for select
+to anon, authenticated
+using (
+  exists (
+    select 1
+    from public.listings l
+    where l.id = listing_media.listing_id
+      and l.status = 'active'
+  )
+  or (
+    (select auth.uid()) is not null
+    and exists (
+      select 1
+      from public.listings l
+      where l.id = listing_media.listing_id
+        and l.business_id is not null
+        and private.is_business_member(l.business_id)
+    )
+  )
+);
+
 -- listing_media storage_path objects are uploaded under the listing creator's
 -- user-id prefix. Keep media-row mutation with that creator while they retain
 -- workspace access. Do not grant all business members media mutation: the
