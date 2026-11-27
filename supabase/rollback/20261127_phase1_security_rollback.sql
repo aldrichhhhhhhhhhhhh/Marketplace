@@ -52,26 +52,30 @@ alter default privileges for role postgres in schema public
 grant execute on function public.set_marketplace_order_updated_at()
 to public, anon, authenticated;
 
--- Roll back migration 001: remove the immutable identity trigger.
+-- Roll back migration 001: remove policies that depend on the new owner helper
+-- before dropping that helper. Then restore the original membership-only helper.
+drop policy if exists "Sellers and business members can read their listings" on public.listings;
+drop policy if exists "Sellers can create their own listings" on public.listings;
+drop policy if exists "Sellers can update their own listings" on public.listings;
+drop policy if exists "Sellers can delete their own listings" on public.listings;
+
 drop trigger if exists listings_guard_workspace_identity on public.listings;
 drop function if exists private.guard_listing_workspace_identity();
 
--- Restore the original membership-only helper (business owner without a
--- business_members row will again fail membership-based listing checks).
 create or replace function private.is_business_member(target_business_id uuid)
 returns boolean
 language sql
 stable
 security definer
 set search_path = ''
-as $$
+as $
   select exists (
     select 1
     from public.business_members bm
     where bm.business_id = target_business_id
       and bm.user_id = (select auth.uid())
   );
-$$;
+$;
 
 revoke all on function private.is_business_member(uuid) from public, anon;
 grant execute on function private.is_business_member(uuid) to authenticated;
