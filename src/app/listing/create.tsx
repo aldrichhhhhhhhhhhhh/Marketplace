@@ -613,7 +613,7 @@ export default function CreateListingScreen() {
           latitude: locationPoint!.latitude,
           longitude: locationPoint!.longitude,
           location_source: locationSource,
-        } as never)
+        })
         .select('id')
         .single();
 
@@ -673,7 +673,7 @@ export default function CreateListingScreen() {
 
       const { error: activateError } = await supabase
         .from('listings')
-        .update({ status: 'active' } as never)
+        .update({ status: 'active' })
         .eq('id', listingId)
         .eq('seller_id', user.id);
       if (activateError) throw new Error(`Your listing and photos are saved as a draft, but activation failed: ${activateError.message}`);
