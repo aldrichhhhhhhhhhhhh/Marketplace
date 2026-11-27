@@ -49,6 +49,7 @@
 | anon | Insert/update/delete any application row | Permission denied |
 | seller_a | Update seller_b's Business A listing | Denied |
 | seller_a | Delete seller_b's Business A listing | Denied |
+| owner_a | Delete seller_a's listing before trusted Storage cleanup exists | Denied |
 | seller_a | Change seller_b listing's `seller_id` to seller_a | Denied |
 | seller_a | Detach seller_b listing by setting `business_id=NULL` | Denied |
 | seller_a | Move a listing from Business A to Business B | Denied |
