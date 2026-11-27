@@ -76,7 +76,10 @@ The existing Storage path contract is `{auth.uid()}/{listing_id}/{sequence}-{saf
 - public object retrieval remains consistent with the current public bucket behavior until a separately reviewed private-bucket migration is approved.
 - Deleting a listing by its business owner must trigger an explicit orphan-object cleanup workflow; SQL row cascade does not itself remove Storage objects.
 
-## Privilege verification after migration 002
+## Privilege verification after migration 002 and 003
+
+Run the read-only catalog assertions in `supabase/tests/phase1_catalog_verification.sql` after all three migrations. Every returned `passed` value must be true. These catalog checks complement, but do not replace, the authenticated identity-based RLS tests below.
+
 
 Inspect `information_schema.role_table_grants`, `pg_class.relacl`, and `has_table_privilege`:
 
